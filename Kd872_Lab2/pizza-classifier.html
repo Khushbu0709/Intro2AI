@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pizza, Please! — My Tiny Classifier</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #fff7e7; color: #342419; font: 17px/1.6 system-ui, sans-serif; }
+    main { max-width: 850px; margin: auto; padding: 36px 20px 50px; }
+    h1 { font-size: clamp(2.2rem, 7vw, 3.5rem); line-height: 1.1; margin: 10px 0 20px; }
+    h2 { font-size: 1.35rem; margin-top: 0; }
+    .tag { color: #8d361d; font-weight: bold; letter-spacing: .08em; font-size: .8rem; text-transform: uppercase; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 26px 0; }
+    section { background: white; border: 2px solid #ebd5b5; border-radius: 20px; padding: 24px; }
+    label { display: block; font-weight: 650; margin: 20px 0 8px; }
+    input[type=range] { width: 100%; accent-color: #a93621; min-height: 32px; }
+    select, button { font: inherit; border-radius: 10px; padding: 10px 14px; }
+    select { width: 100%; background: #fff; border: 1px solid #887461; color: inherit; }
+    button { cursor: pointer; border: 2px solid #a93621; background: #a93621; color: white; font-weight: 650; }
+    button:hover { filter: brightness(.92); }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #246caa; outline-offset: 4px; }
+    .secondary { background: white; color: #8e2d1b; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+    #predict { width: 100%; margin-top: 24px; }
+    #result { margin-top: 20px; background: #fff2d3; border-radius: 12px; padding: 16px; }
+    #answer { font-size: 1.5rem; display: block; }
+    #reason { margin: 8px 0 0; }
+    ul { padding-left: 22px; }
+    li { margin: 10px 0; }
+    .small { font-size: .9rem; color: #655343; }
+    #notice { min-height: 1.6em; }
+    #evidence { margin-bottom: 20px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ebd5b5; }
+    caption { text-align: left; margin-bottom: 14px; font-weight: 650; }
+    .closest { background: #fff2d3; }
+    @media (max-width: 650px) { .grid { grid-template-columns: 1fr; } main { padding-top: 24px; } }
+  </style>
+</head>
+<body>
+<main>
+  <span class="tag">A tiny taste experiment</span>
+  <h1>🍕 Pizza, please!</h1>
+  <p>Would I order this pizza? Choose the vegetable toppings and cheese, then let a tiny classifier guess my preference from examples.</p>
+  <div class="grid">
+    <section aria-labelledby="try-title">
+      <h2 id="try-title">1. Build a pizza</h2>
+      <label for="vegetables">Vegetable toppings: <output id="vegetable-count" for="vegetables">3</output></label>
+      <input id="vegetables" type="range" min="0" max="6" value="3" step="1">
+      <label for="cheese">Amount of cheese</label>
+      <select id="cheese">
+        <option value="0">Low — a little sprinkle</option>
+        <option value="1">Medium — nicely cheesy</option>
+        <option value="2" selected>High — extra cheesy!</option>
+      </select>
+      <button id="predict" type="button">What’s the pizza verdict?</button>
+      <div id="result" role="status" aria-live="polite">
+        <strong id="answer">Your pizza is ready to test.</strong>
+        <p id="reason">Press the button to get a prediction.</p>
+      </div>
+    </section>
+    <section aria-labelledby="examples-title">
+      <h2 id="examples-title">2. Teach my taste</h2>
+      <p>These are the labeled examples the classifier learns from:</p>
+      <ul id="examples"></ul>
+      <p class="small">Want to teach it something new? Label the pizza you built on the left. Its next guess will use your example too.</p>
+      <div class="actions">
+        <button id="order" type="button">Label: Order</button>
+        <button id="skip" type="button" class="secondary">Label: Skip</button>
+      </div>
+      <p id="notice" class="small" role="status" aria-live="polite"></p>
+      <button id="reset" type="button" class="secondary">Reset examples</button>
+    </section>
+  </div>
+  <section id="evidence" aria-labelledby="evidence-title" hidden>
+    <h2 id="evidence-title">🔎 Evidence behind the guess</h2>
+    <p>Smaller distance means a closer match. <strong>0 means exactly the same inputs.</strong> The closest example supplies the label; equally close examples with different labels produce a tie.</p>
+    <div class="table-wrap">
+      <table>
+        <caption id="comparison-caption"></caption>
+        <thead><tr><th scope="col">Labeled pizza</th><th scope="col">Label</th><th scope="col">Distance</th><th scope="col">Evidence</th></tr></thead>
+        <tbody id="comparison-rows"></tbody>
+      </table>
+    </div>
+    <p class="small">Distance = topping difference ÷ 6 + cheese difference ÷ 2. Cheese uses low = 0, medium = 1, high = 2. Scores are rounded to two decimals; they are distances, not confidence percentages.</p>
+  </section>
+  <section aria-labelledby="learn-title">
+    <h2 id="learn-title">How does it learn?</h2>
+    <p>The <strong>inputs</strong> are the number of vegetable toppings and amount of cheese. The <strong>labels</strong> are <strong>Order</strong> and <strong>Skip</strong>.</p>
+    <p>This classifier remembers your labeled examples. For a new pizza, it finds the closest example and borrows its label. This is called <strong>nearest neighbor</strong>. Adding or changing an example can change its prediction!</p>
+    <p class="small">To compare fairly, toppings (0–6) and cheese (low = 0, medium = 1, high = 2) are each scaled to 0–1. We add their absolute differences. If equally close examples disagree, the classifier asks for another label. Two examples are only a start: this is a guess about taste, not a rule about all pizzas.</p>
+    <p class="small">Try 3 toppings with high cheese, then low cheese. Next, try medium cheese and teach it your choice. Everything runs in your browser. Refreshing the page resets your examples.</p>
+  </section>
+</main>
+<script>
+  const starterExamples = [
+    { vegetables: 3, cheese: 2, label: 'Order' },
+    { vegetables: 3, cheese: 0, label: 'Skip' }
+  ];
+  let examples = starterExamples.map(example => ({ ...example }));
+  const byId = id => document.getElementById(id);
+  const cheeseNames = ['low', 'medium', 'high'];
+  function pizzaDescription(pizza) {
+    return `${pizza.vegetables} vegetable topping${pizza.vegetables === 1 ? '' : 's'} + ${cheeseNames[pizza.cheese]} cheese`;
+  }
+  function currentPizza() {
+    return { vegetables: Number(byId('vegetables').value), cheese: Number(byId('cheese').value) };
+  }
+  function classify(pizza, trainingExamples) {
+    const distances = trainingExamples.map(example =>
+      Math.abs(pizza.vegetables - example.vegetables) / 6 + Math.abs(pizza.cheese - example.cheese) / 2
+    );
+    const closest = Math.min(...distances);
+    const neighbors = trainingExamples.filter((example, index) => Math.abs(distances[index] - closest) < 1e-9);
+    const labels = new Set(neighbors.map(example => example.label));
+    return { label: labels.size === 1 ? neighbors[0].label : null, neighbors, distances };
+  }
+  function renderEvidence(pizza, prediction) {
+    byId('comparison-caption').textContent = `Comparing your pizza: ${pizzaDescription(pizza)}`;
+    byId('comparison-rows').replaceChildren();
+    examples.map((example, index) => ({ example, distance: prediction.distances[index] }))
+      .sort((a, b) => a.distance - b.distance)
+      .forEach(({ example, distance }) => {
+        const row = document.createElement('tr');
+        const closest = prediction.neighbors.includes(example);
+        if (closest) row.className = 'closest';
+        const toppingDifference = Math.abs(pizza.vegetables - example.vegetables);
+        const cheeseDifference = Math.abs(pizza.cheese - example.cheese);
+        const evidence = closest
+          ? (prediction.label === null ? 'Closest — conflicting labels' : 'Closest — used for prediction')
+          : 'Farther away';
+        [pizzaDescription(example), example.label,
+          `${toppingDifference}/6 + ${cheeseDifference}/2 = ${distance.toFixed(2)}`, evidence]
+          .forEach(text => {
+            const cell = document.createElement('td');
+            cell.textContent = text;
+            row.appendChild(cell);
+          });
+        byId('comparison-rows').appendChild(row);
+      });
+    byId('evidence').hidden = false;
+  }
+  function renderExamples() {
+    byId('examples').replaceChildren();
+    examples.forEach(example => {
+      const item = document.createElement('li');
+      item.textContent = `${pizzaDescription(example)} → ${example.label}`;
+      byId('examples').appendChild(item);
+    });
+  }
+  function clearPrediction() {
+    byId('vegetable-count').value = byId('vegetables').value;
+    byId('answer').textContent = 'Your pizza is ready to test.';
+    byId('reason').textContent = 'Press the button to get a prediction.';
+    byId('notice').textContent = '';
+    byId('evidence').hidden = true;
+  }
+  function predict() {
+    const prediction = classify(currentPizza(), examples);
+    renderEvidence(currentPizza(), prediction);
+    byId('answer').textContent = prediction.label === null ? '🤔 A taste tie!' : prediction.label === 'Order' ? '🍕 Order' : '✋ Skip';
+    byId('reason').textContent = prediction.label === null
+      ? 'Equally close examples have different labels. Teach me by labeling this pizza Order or Skip.'
+      : `My guess comes from the closest labeled example${prediction.neighbors.length > 1 ? 's' : ''}: ${prediction.neighbors.map(pizzaDescription).join('; ')}. Label: ${prediction.label}.`;
+  }
+  function teach(label) {
+    const pizza = currentPizza();
+    const existing = examples.find(example => example.vegetables === pizza.vegetables && example.cheese === pizza.cheese);
+    if (existing) existing.label = label;
+    else examples.push({ ...pizza, label });
+    renderExamples();
+    predict();
+    byId('notice').textContent = `${existing ? 'Updated' : 'Added'} this pizza’s label to ${label}. Try another pizza!`;
+  }
+  byId('vegetables').addEventListener('input', clearPrediction);
+  byId('cheese').addEventListener('change', clearPrediction);
+  byId('predict').addEventListener('click', predict);
+  byId('order').addEventListener('click', () => teach('Order'));
+  byId('skip').addEventListener('click', () => teach('Skip'));
+  byId('reset').addEventListener('click', () => {
+    examples = starterExamples.map(example => ({ ...example }));
+    renderExamples();
+    clearPrediction();
+    byId('notice').textContent = 'Back to the two starter examples.';
+  });
+  renderExamples();
+</script>
+</body>
+</html>
