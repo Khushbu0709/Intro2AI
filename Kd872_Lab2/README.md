@@ -11,13 +11,11 @@ The classifier uses two inputs:
 
 The labels are **Order** and **Skip**.
 
-## Improving the Page
+## Development Log
 
-The first version of the page did not have an evidence table. I asked Codex:
-
-> A visitor should see some evidence—not only an answer.
-
-The updated HTML page includes an evidence table showing the labeled examples, their distances from the visitor's pizza, and the closest matches used for the prediction. I reviewed the updated page, and it looks good.
+1. **Choosing the idea:** I chose a pizza preference classifier with vegetable toppings and cheese as inputs. My starter examples used 3 toppings with high cheese labeled **Order** and 3 toppings with low cheese labeled **Skip**.
+2. **Building the first page:** I asked Codex to create a simple, playful HTML page. It let visitors choose inputs, get a prediction, and label new examples to teach the classifier.
+3. **Adding visible evidence:** The first page did not have an evidence table, so I asked for “some evidence—not only an answer.” Codex added a table showing each example's label and distance, with the closest matches highlighted. I reviewed the updated page, and it looks good.
 
 ## How to Open and Test
 
