@@ -30,7 +30,7 @@
     li { margin: 10px 0; }
     .small { font-size: .9rem; color: #655343; }
     #notice { min-height: 1.6em; }
-    #evidence { margin-bottom: 20px; }
+    #evidence, #surprising-case { margin-bottom: 20px; }
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: .9rem; }
     th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ebd5b5; }
@@ -85,6 +85,13 @@
       </table>
     </div>
     <p class="small">Distance = topping difference ÷ 6 + cheese difference ÷ 2. Cheese uses low = 0, medium = 1, high = 2. Scores are rounded to two decimals; they are distances, not confidence percentages.</p>
+  </section>
+  <section id="surprising-case" aria-labelledby="surprising-title">
+    <h2 id="surprising-title">Try a surprising case</h2>
+    <p><strong>0 vegetable toppings + high cheese</strong> → prediction with the two starter examples: <strong id="starter-prediction"></strong>.</p>
+    <p>Both starter examples have 3 vegetables. With only those examples, the classifier has not yet learned much about how the number of vegetables affects the result. It guesses Order because the high-cheese example is closer, even though this pizza has no vegetables.</p>
+    <p class="small">A prediction is only as useful as the examples behind it. Try labeling pizzas with different numbers of vegetables to help it learn. The button uses your current examples, so teaching it more may change its guess.</p>
+    <button id="try-surprising" type="button" class="secondary">Try this pizza</button>
   </section>
   <section aria-labelledby="learn-title">
     <h2 id="learn-title">How does it learn?</h2>
@@ -177,6 +184,14 @@
   byId('vegetables').addEventListener('input', clearPrediction);
   byId('cheese').addEventListener('change', clearPrediction);
   byId('predict').addEventListener('click', predict);
+  byId('starter-prediction').textContent = classify({ vegetables: 0, cheese: 2 }, starterExamples).label;
+  byId('try-surprising').addEventListener('click', () => {
+    byId('vegetables').value = '0';
+    byId('cheese').value = '2';
+    clearPrediction();
+    predict();
+    byId('predict').focus();
+  });
   byId('order').addEventListener('click', () => teach('Order'));
   byId('skip').addEventListener('click', () => teach('Skip'));
   byId('reset').addEventListener('click', () => {
